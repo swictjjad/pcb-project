@@ -1,0 +1,31 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "role": "admin",
+      "password_hash": "33fc98534273e7a8083e0c1efb68939cce32f8f7190af062f43ee9518d4fad90$ee405ff18a3cc9809009d3715fe9b7ac60a9da27f242e0f5641e8f91023cdb77",
+      "display_name": "管理员",
+      "employee_id": "A001",
+      "last_login": "2026-06-08T21:41:21.360333",
+      "password_changed_at": ""
+    },
+    {
+      "username": "engineer",
+      "role": "engineer",
+      "password_hash": "b6de9efe8becd5cb8a03deb70a7778b539d83c9c07211cb3d01937759ee958d3$710ee65c5cc59d9fe50e564cd62d8114d5540a2ff3e6b503f58e22b6bcd2d193",
+      "display_name": "工程师",
+      "employee_id": "E001",
+      "last_login": "",
+      "password_changed_at": ""
+    },
+    {
+      "username": "operator",
+      "role": "operator",
+      "password_hash": "2d1b04b8ea629c6e52dd1077177fed046f3f597ea1ae707912995307acc24d87$e09b98326dee4125d258b9e18514101291ee4e5b48924a67573538e14f6238b6",
+      "display_name": "操作员",
+      "employee_id": "O001",
+      "last_login": "",
+      "password_changed_at": ""
+    }
+  ]
+}

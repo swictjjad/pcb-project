@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Models (large files - exclude from repo)
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Data (exclude large datasets)
+data/DeepPCB-master/
+data/PCBDefectDataset/train/images/
+data/PCBDefectDataset/val/images/
+data/PCBDefectDataset/train/labels/
+data/PCBDefectDataset/val/labels/
+*.zip
+*.jpg
+*.jpeg
+!data/**/*.jpg
+!data/**/*.jpeg
+
+# Training results
+runs/detect/
+runs/segment/
+runs/classify/
+results/train/
+results/detect/
+
+# Logs
+*.log
+results/*.log
+
+# Database
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Arduino build
+arduino/build/

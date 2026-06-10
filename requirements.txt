@@ -1,0 +1,52 @@
+# PCB-YOLO 缺陷检测与智能分拣系统 — Python依赖包
+# 安装命令: pip install -r requirements.txt
+
+# ============== 核心依赖 ==============
+# 深度学习框架
+torch>=2.0.0
+torchvision>=0.15.0
+
+# YOLO11目标检测 (ultralytics >= 8.3.0 支持YOLO11)
+ultralytics>=8.3.0
+
+# 图像处理
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# 数值计算
+numpy>=1.24.0
+
+# ============== GUI依赖 ==============
+PyQt5>=5.15.0
+
+# ============== 硬件通信 ==============
+pyserial>=3.5
+
+# ============== 数据处理 ==============
+PyYAML>=6.0
+tqdm>=4.65.0
+
+# ============== 可选加速 ==============
+# ONNX Runtime (模型部署加速)
+# onnxruntime-gpu>=1.15.0  # GPU版本
+# onnxruntime>=1.15.0      # CPU版本
+
+# TensorRT (NVIDIA GPU加速)
+# tensorrt>=8.6.0
+
+# OpenVINO (Intel CPU/GPU加速)
+# openvino>=2023.0.0
+
+# ============== 开发工具 ==============
+# 代码格式化
+# black>=23.0.0
+
+# 类型检查
+# mypy>=1.0.0
+
+# ============== 日志和监控 ==============
+# TensorBoard (训练可视化)
+# tensorboard>=2.13.0
+
+# Weights & Biases (实验跟踪)
+# wandb>=0.15.0
