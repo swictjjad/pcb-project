@@ -15,13 +15,16 @@ env/
 .idea/
 *.swp
 
-# Results & Data
+# Results & Training artifacts
 results/
+runs/
+
+# Model weights (large, exclude from git)
 models/*.pt
 models/*.pth
 *.db
 
-# Config sensitive data
+# Config sensitive/runtime data
 configs/users.json
 configs/default_passwords.json
 configs/line_profiles/
@@ -29,9 +32,6 @@ configs/line_profiles/
 # OS
 .DS_Store
 Thumbs.db
-
-# ONNX model (keep if small, exclude if large)
-# models/*.onnx
 
 # Torch
 .torch_preloaded
