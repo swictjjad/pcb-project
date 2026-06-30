@@ -298,7 +298,7 @@ class MockDetector:
             cls_id = det['class_id']
             conf = det['confidence']
             label = det.get('class_name_cn', det['class_name']) if show_cn else det['class_name']
-            color = self.class_colors[cls_id]
+            color = self.class_colors[cls_id % len(self.class_colors)]
 
             # 边界框
             draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
@@ -314,7 +314,7 @@ class MockDetector:
             f"FPS: {results['fps']:.1f}",
             f"Time: {results['inference_time']:.1f}ms",
             f"Defects: {results['num_detections']}",
-            f"Backend: {results['backend']}",
+            f"Backend: {results.get('backend', 'mock')}",
         ]
         for i, line in enumerate(info_lines):
             draw.text((10, 10 + i * 24), line, fill=(0, 255, 0), font=font_small)

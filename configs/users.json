@@ -3,16 +3,16 @@
     {
       "username": "admin",
       "role": "admin",
-      "password_hash": "33fc98534273e7a8083e0c1efb68939cce32f8f7190af062f43ee9518d4fad90$ee405ff18a3cc9809009d3715fe9b7ac60a9da27f242e0f5641e8f91023cdb77",
+      "password_hash": "9386a57815bd6b8a329fc2d8e355826b6ccd7197f097701425dabe4365de1805$2f9adf45fd95001bfe81a3fba6e229d25fe5bb07c7d5f2e68d712c345b0bb97d",
       "display_name": "管理员",
       "employee_id": "A001",
-      "last_login": "2026-06-08T21:41:21.360333",
+      "last_login": "2026-06-16T23:34:46.800971",
       "password_changed_at": ""
     },
     {
       "username": "engineer",
       "role": "engineer",
-      "password_hash": "b6de9efe8becd5cb8a03deb70a7778b539d83c9c07211cb3d01937759ee958d3$710ee65c5cc59d9fe50e564cd62d8114d5540a2ff3e6b503f58e22b6bcd2d193",
+      "password_hash": "7070c840c30c477fb444cfa0f429cbe1e2dcdb7480d4f1a5403d8443df06d0b2$ec3aaa0cab98a3c6c99fa1d3c5f86ce641305054aac65cd63c69de04e988ffd8",
       "display_name": "工程师",
       "employee_id": "E001",
       "last_login": "",
@@ -21,7 +21,7 @@
     {
       "username": "operator",
       "role": "operator",
-      "password_hash": "2d1b04b8ea629c6e52dd1077177fed046f3f597ea1ae707912995307acc24d87$e09b98326dee4125d258b9e18514101291ee4e5b48924a67573538e14f6238b6",
+      "password_hash": "fae62f6c984954129d404580d9ad0f0be37bce3bbc4e5209c1d5b1f764c1fbbf$6a47abee86de70cb96840363771ff195f783abea4d535682b159ab8699a41096",
       "display_name": "操作员",
       "employee_id": "O001",
       "last_login": "",

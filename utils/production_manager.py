@@ -15,11 +15,12 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from utils.logger import setup_logger
+from utils.config_loader import get_project_root
 
 logger = setup_logger("production_manager")
 
-# 产线配置存储路径
-PROFILES_DIR = Path("./configs/line_profiles")
+# 产线配置存储路径（自动基于项目根目录）
+PROFILES_DIR = get_project_root() / "configs" / "line_profiles"
 
 
 class LineProfile:
@@ -218,14 +219,19 @@ class ProductionManager:
         """从当前配置创建新的产线配置"""
         profile = LineProfile(name=name)
         if config:
-            profile.model_path = config.inference.model_path
-            profile.conf_threshold = config.inference.conf_threshold
-            profile.iou_threshold = config.inference.iou_threshold
-            profile.class_names = list(config.data.class_names)
-            profile.camera_index = config.hardware.camera.index
-            profile.servo_angle_ok = config.hardware.servo.angle_ok
-            profile.servo_angle_ng = config.hardware.servo.angle_ng
-            profile.conveyor_speed = config.hardware.conveyor.speed
+            profile.model_path = getattr(getattr(config, 'inference', None), 'model_path', '')
+            profile.conf_threshold = getattr(getattr(config, 'inference', None), 'conf_threshold', 0.25)
+            profile.iou_threshold = getattr(getattr(config, 'inference', None), 'iou_threshold', 0.45)
+            class_names = getattr(config, 'data', None)
+            profile.class_names = list(class_names.class_names) if class_names and hasattr(class_names, 'class_names') else []
+            hw = getattr(config, 'hardware', None)
+            cam = getattr(hw, 'camera', None) if hw else None
+            profile.camera_index = cam.index if cam else 0
+            servo = getattr(hw, 'servo', None) if hw else None
+            profile.servo_angle_ok = servo.angle_ok if servo else 45
+            profile.servo_angle_ng = servo.angle_ng if servo else 135
+            conveyor = getattr(hw, 'conveyor', None) if hw else None
+            profile.conveyor_speed = conveyor.speed if conveyor else 100
         self.save_profile(profile)
         return profile
 

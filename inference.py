@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from utils.config_loader import get_config
+from utils.config_loader import get_config, get_project_root
 from utils.logger import setup_logger
 
 logger = setup_logger("inference")
@@ -58,7 +58,7 @@ def download_pretrained_model(save_path):
         ssl_context.check_hostname = True
         ssl_context.verify_mode = ssl.CERT_REQUIRED
 
-        with urllib.request.urlopen(YOLO11S_PT_URL, context=ssl_context, timeout=60) as response:
+        with urllib.request.urlopen(YOLO11S_PT_URL, context=ssl_context, timeout=30) as response:
             save_path.write_bytes(response.read())
         logger.info("下载完成")
         return str(save_path)
@@ -361,7 +361,55 @@ class ONNXPCBDefectDetector:
 
         detections = self.postprocess(outputs, img_shape, ratio, pad)
 
-        return detections, inference_time
+        avg_fps = 1.0 / max(inference_time, 0.001)
+        return {
+            'detections': detections,
+            'num_detections': len(detections),
+            'inference_time': inference_time * 1000,
+            'fps': avg_fps,
+            'image_shape': (img_shape[0], img_shape[1]),
+            'backend': 'onnx',
+            'error': None,
+        }
+
+    def draw_results(self, image, results, show_conf=True, show_label=True):
+        img = image.copy()
+        if not hasattr(self, '_class_colors'):
+            import hashlib
+            self._class_colors = []
+            for i, name in enumerate(self.class_names):
+                hash_obj = hashlib.md5(name.encode()).hexdigest()
+                r = int(hash_obj[0:2], 16) % 128 + 127
+                g = int(hash_obj[2:4], 16) % 128 + 127
+                b = int(hash_obj[4:6], 16) % 128 + 127
+                self._class_colors.append((b, g, r))
+
+        detections = results.get('detections', [])
+        for det in detections:
+            x1, y1, x2, y2 = map(int, det['bbox'])
+            cls_id = det['class_id']
+            conf = det['confidence']
+            label = det['class_name']
+            color = self._class_colors[cls_id % len(self._class_colors)]
+            cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+            if show_label:
+                text = label
+                if show_conf:
+                    text += f" {conf:.2f}"
+                (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+                cv2.rectangle(img, (x1, y1 - th - 10), (x1 + tw, y1), color, -1)
+                cv2.putText(img, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+        fps_text = f"FPS: {results.get('fps', 0):.1f}"
+        time_text = f"Time: {results.get('inference_time', 0):.1f}ms"
+        count_text = f"Detections: {results.get('num_detections', 0)}"
+        backend_text = f"Backend: {results.get('backend', 'unknown')}"
+        info_y = 30
+        cv2.putText(img, fps_text, (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(img, time_text, (10, info_y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(img, count_text, (10, info_y + 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(img, backend_text, (10, info_y + 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
+        return img
 
     def warmup(self, runs=3):
         """
@@ -440,17 +488,47 @@ class PCBDefectDetector:
         Returns:
             下载后的模型路径
         """
-        models_dir = Path(__file__).parent / "models"
-        fallback_path = models_dir / "yolo11s.pt"
+        models_dir = get_project_root() / "models"
+        fallback_path = models_dir / "best.pt"
         logger.warning(f"模型文件不存在: {self.model_path}，尝试下载YOLO11s预训练权重作为fallback")
         return download_pretrained_model(fallback_path)
+
+    def _use_coco_fallback(self):
+        """
+        当自定义模型不可用时，使用 ultralytics 自动下载的 COCO 预训练模型
+        作为演示/测试用途（不能检测 PCB 缺陷，但可以验证系统流程）
+        """
+        models_dir = get_project_root() / "models"
+        models_dir.mkdir(parents=True, exist_ok=True)
+        coco_path = models_dir / "yolo11n_coco.pt"
+
+        if not coco_path.exists():
+            logger.info("COCO 预训练模型不存在，ultralytics 将自动下载...")
+
+        try:
+            from ultralytics import YOLO
+            logger.info("使用 YOLO11n COCO 预训练模型进行演示（非 PCB 专用模型）")
+            self.model = YOLO(str(coco_path))
+            self.backend = 'pytorch'
+            self._is_demo_mode = True
+
+            # 预热
+            dummy = np.zeros((self.img_size, self.img_size, 3), dtype=np.uint8)
+            self.model.predict(dummy, verbose=False)
+            logger.info("COCO 演示模型加载完成")
+            return True
+        except Exception as e:
+            logger.error(f"COCO 模型加载失败: {e}")
+            return False
 
     def _load_model(self):
         """
         加载模型，自动检测模型格式：
         - .onnx → 使用ONNX Runtime
         - .pt → 使用ultralytics YOLO
+        - 模型不存在 → 尝试下载 → 再失败则使用 COCO 预训练模型演示
         """
+        self._is_demo_mode = False  # 标记是否为演示模式
         model_suffix = self.model_path.suffix.lower()
 
         # 检查模型文件是否存在，不存在则尝试自动下载
@@ -461,11 +539,15 @@ class PCBDefectDetector:
                     self.model_path = Path(fallback)
                     model_suffix = '.pt'
                 except Exception as e:
-                    logger.error(f"自动下载模型失败: {e}")
-                    raise FileNotFoundError(f"模型文件不存在且自动下载失败: {self.model_path}")
+                    logger.warning(f"自动下载模型失败: {e}，尝试使用 COCO 预训练模型")
+                    if not self._use_coco_fallback():
+                        raise RuntimeError(f"所有模型加载均失败: {e}")
+                    return  # COCO 模型已加载，直接返回
             else:
-                logger.error(f"模型文件不存在: {self.model_path}")
-                raise FileNotFoundError(f"模型文件不存在: {self.model_path}")
+                logger.warning(f"模型文件不存在: {self.model_path}，尝试使用 COCO 预训练模型")
+                if not self._use_coco_fallback():
+                    raise FileNotFoundError(f"模型文件不存在且 COCO 模型也加载失败: {self.model_path}")
+                return  # COCO 模型已加载，直接返回
 
         if model_suffix == '.onnx':
             # 使用ONNX Runtime推理
@@ -487,8 +569,8 @@ class PCBDefectDetector:
                     from ultralytics import YOLO
                 except ImportError:
                     raise ImportError("未安装ultralytics，请运行: pip install ultralytics>=8.3.0")
-                logger.info(f"加载PyTorch模型: {pt_path}")
-                self.model = YOLO(str(pt_path))
+                logger.info(f"加载PyTorch模型: {self.model_path}")
+                self.model = YOLO(str(self.model_path))
                 dummy = np.zeros((self.img_size, self.img_size, 3), dtype=np.uint8)
                 self.model.predict(dummy, verbose=False)
                 logger.info("PyTorch模型加载完成")
@@ -639,7 +721,6 @@ class PCBDefectDetector:
             verbose=False,
             device=self.device,
             half=self.device != 'cpu',    # GPU 上启用 FP16 加速
-            img_augment=False,            # 推理时禁用数据增强
         )
 
         inference_time = time.time() - start_time
@@ -745,7 +826,7 @@ class PCBDefectDetector:
             cls_id = det['class_id']
             conf = det['confidence']
             label = det['class_name']
-            color = self.class_colors[cls_id]
+            color = self.class_colors[cls_id % len(self.class_colors)]
 
             # 绘制边界框
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
@@ -844,15 +925,28 @@ class PCBDefectDetector:
             camera_id: 摄像头ID
             save_dir: 保存目录，None则不保存
         """
-        cap = cv2.VideoCapture(camera_id)
+        # 优先使用 DSHOW 后端（Windows 下更稳定）
+        cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
 
-        # 设置分辨率
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-        cap.set(cv2.CAP_PROP_FPS, 30)
+        # 尝试设置分辨率，失败则回退
+        for target_res in [(1920, 1080), (1280, 720), (640, 480)]:
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, target_res[0])
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, target_res[1])
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            ret, _ = cap.read()
+            if ret:
+                logger.info(f"摄像头分辨率设置为: {target_res[0]}x{target_res[1]}")
+                break
 
         if not cap.isOpened():
             logger.error(f"无法打开摄像头: {camera_id}")
+            return
+
+        # 再读一帧验证
+        ret, _ = cap.read()
+        if not ret:
+            logger.error("摄像头打开但无法读取帧")
+            cap.release()
             return
 
         logger.info(f"摄像头已打开: {camera_id}")

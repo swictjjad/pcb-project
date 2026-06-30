@@ -18,12 +18,13 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from utils.logger import setup_logger
+from utils.config_loader import get_project_root
 
 logger = setup_logger("auth")
 
-# 用户数据存储路径
-AUTH_DB_PATH = Path("./configs/users.json")
-AUDIT_LOG_PATH = Path("./results/audit.log")
+# 用户数据存储路径（自动基于项目根目录）
+AUTH_DB_PATH = get_project_root() / "configs" / "users.json"
+AUDIT_LOG_PATH = get_project_root() / "results" / "audit.log"
 
 # 密码最小长度要求
 PASSWORD_MIN_LENGTH = 8
@@ -152,15 +153,10 @@ class AuthManager:
         """生成安全随机盐"""
         return secrets.token_hex(32)
 
-    def _hash_password(self, password: str, salt: str = "") -> str:
-        """
-        密码哈希 - 使用 PBKDF2-SHA256 带盐
-        安全改进：使用更安全的哈希方法
-        """
-        if not salt:
-            salt = self._generate_salt()
-        # PBKDF2 with SHA256, 100000 iterations
-        import hmac
+    @staticmethod
+    def _hash_password(password: str) -> str:
+        """密码哈希 - 使用 PBKDF2-SHA256 带盐"""
+        salt = secrets.token_hex(32)
         key = hashlib.pbkdf2_hmac(
             'sha256',
             password.encode('utf-8'),
@@ -188,10 +184,10 @@ class AuthManager:
 
     def _create_default_users(self):
         """创建默认用户（强制首次登录修改密码）"""
-        # 生成随机初始密码而非硬编码
-        admin_pwd = secrets.token_urlsafe(12)
-        engineer_pwd = secrets.token_urlsafe(12)
-        operator_pwd = secrets.token_urlsafe(12)
+        # Fixed default passwords for factory deployment
+        admin_pwd = "admin123"
+        engineer_pwd = "eng123"
+        operator_pwd = "op123"
 
         default_users = [
             User("admin", Role.ADMIN, self._hash_password(admin_pwd), "管理员", "A001"),
@@ -254,19 +250,6 @@ class AuthManager:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error(f"保存用户数据失败: {e}")
-
-    @staticmethod
-    def _hash_password(password: str) -> str:
-        """密码哈希 - 使用 PBKDF2-SHA256 带盐"""
-        import hmac
-        salt = secrets.token_hex(32)
-        key = hashlib.pbkdf2_hmac(
-            'sha256',
-            password.encode('utf-8'),
-            salt.encode('utf-8'),
-            100000
-        )
-        return f"{salt}${key.hex()}"
 
     def login(self, username: str, password: str) -> bool:
         """

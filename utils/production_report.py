@@ -131,8 +131,12 @@ class ProductionReportGenerator:
                 s['ok_count'] += 1
             else:
                 s['ng_count'] += 1
-            if rec.get('inference_time_ms'):
-                s['inference_times'].append(rec['inference_time_ms'])
+            it = rec.get('inference_time_ms')
+            if it is not None:
+                try:
+                    s['inference_times'].append(float(it))
+                except (TypeError, ValueError):
+                    pass
 
         # 计算汇总
         for s in operator_stats.values():

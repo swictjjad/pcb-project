@@ -1,164 +1,155 @@
-# PCB-YOLO v2 配置文件
-# 基于YOLO11 + DAGE几何先验 + 偏振融合的PCB缺陷检测系统
-# 2026 睿抗机器人开发者大赛 · CAIR强体赛道 · AI视觉应用
+﻿# PCB-YOLO v2 Configuration File
+# Based on YOLO11 + DAGE Geometric Prior + Polarization Fusion for PCB Defect Detection
 
-# ==================== 数据集配置 ====================
+# ==================== Dataset Configuration ====================
 data:
-  dataset_path: "./data/PCBDefectDataset"       # 数据集根目录（相对路径，便于跨机器使用）
-  val_iou_threshold: 0.45                        # 验证集 NMS IoU 阈值（与推理保持一致）
+  dataset_path: "./data/PCBDefectDataset"
+  val_iou_threshold: 0.45
   train_ratio: 0.8
   val_ratio: 0.1
   test_ratio: 0.1
-  img_size: 640                         # 输入图像尺寸
-  num_classes: 6                        # 缺陷类别数
+  img_size: 640
+  num_classes: 6
   class_names:
-    - open                              # 开路
-    - short                             # 短路
-    - mousebite                         # 鼠咬
-    - spur                              # 毛刺
-    - copper                            # 杂铜
-    - pin-hole                          # 漏孔
+    - open
+    - short
+    - mousebite
+    - spur
+    - copper
+    - pin-hole
 
-# ==================== 模型配置 ====================
+# ==================== Model Configuration ====================
 model:
-  name: "yolo11n"                        # 基础模型: yolo11n/s/m/l/x
-  use_dage: true                         # DAGE缺陷几何先验特征增强
-  learnable_gabor: true                 # Gabor核是否可学习（true=可学习，false=对照实验）
-  use_p2_head: true                     # P2小目标检测头
-  use_wiou: true                        # WIoU v3动态聚焦损失（已修复 API 兼容）
-  use_polarization: false               # 偏振光-RGB多模态融合（需偏振相机）
-  pretrained: true                        # 启用预训练权重加速收敛
-  conf_threshold: 0.30                  # 置信度阈值（提升precision，减少误报）
-  iou_threshold: 0.40                   # NMS IoU阈值（稍宽松，保留更多候选）
-  max_det: 300                          # 单图最大检测数
-
-  # 置信度波动检测配置（MC Dropout）
-  # 注意：不再使用"不确定性量化"术语，改用"置信度波动检测"
-  # 因为YOLO置信度不等于贝叶斯后验概率
+  name: "yolo11n"
+  use_dage: true
+  learnable_gabor: true
+  use_p2_head: true
+  use_wiou: true
+  use_polarization: false
+  pretrained: true
+  conf_threshold: 0.50
+  iou_threshold: 0.40
+  max_det: 300
   fluctuation:
-    enabled: false                      # 默认关闭（推理速度×10惩罚）；需要时手动开启
-    num_passes: 10                      # MC采样次数
-    consistency_threshold: 0.7          # 检测一致性阈值
-    fluctuation_threshold: 0.05         # 置信度波动阈值
+    enabled: false
+    num_passes: 10
+    consistency_threshold: 0.7
+    fluctuation_threshold: 0.05
 
-# ==================== 训练配置 ====================
+# ==================== Training Configuration ====================
 train:
-  epochs: 50                              # 训练轮数（patience=50，至少50轮才会生效）
-  batch_size: 16                          # batch size（CPU训练时用16，有GPU时改为32）
+  epochs: 50
+  batch_size: 16
   workers: 4
-  device: "cpu"                           # CPU设备号
+  device: "cpu"
   optimizer: "AdamW"
-  lr0: 0.001                            # 初始学习率
-  lrf: 0.01                             # 最终学习率 = lr0 * lrf
+  lr0: 0.001
+  lrf: 0.01
   momentum: 0.937
   weight_decay: 0.0005
   warmup_epochs: 3.0
-  # warmup_momentum: 0.8  ← 删除，AdamW不使用momentum预热
-  cos_lr: true                          # 余弦退火学习率
-  patience: 50                          # 早停耐心值（patience轮无改善则停止）
-  save_period: 10                       # 每N轮保存一次
-  project: "./results/train"            # 训练结果保存路径
-  name: "pcb_yolo11_dage"              # 实验名称（与模型名一致）
-  seed: 42                              # 随机种子，确保实验可复现
+  cos_lr: true
+  patience: 50
+  save_period: 10
+  project: "./results/train"
+  name: "pcb_yolo11_dage"
+  seed: 42
 
-# ==================== 推理配置 ====================
+# ==================== Inference Configuration ====================
 inference:
-  model_path: "./models/best.pt"        # 训练好的模型路径
-  source: 0                             # 0=摄像头, 或图片/视频路径
+  model_path: "./models/best.pt"
+  source: 0
   img_size: 640
-  conf_threshold: 0.30
+  conf_threshold: 0.50
   iou_threshold: 0.40
   save_results: true
   show_preview: true
-  device: "cpu"                           # CPU推理设备
+  device: "cpu"
 
-# ==================== 硬件配置 ====================
+# ==================== Hardware Configuration ====================
 hardware:
   camera:
-    index: 0                            # 摄像头索引
-    width: 1920                         # 采集分辨率
+    index: 0
+    width: 1920
     height: 1080
-    exposure: -1                        # -1=自动
+    exposure: -1
     fps: 30
-
   conveyor:
-    enabled: true
-    motor_pin: 5                        # 步进电机控制引脚(Arduino)
-    speed: 100                          # 传送带速度 (步进电机脉冲间隔ms)
-
+    enabled: false
+    motor_pin: 5
+    speed: 100
   sensor:
-    enabled: true
-    trigger_pin: 2                      # 红外传感器数字引脚(Arduino)
-    debounce_ms: 50                     # 消抖时间
-
+    enabled: false
+    trigger_pin: 2
+    debounce_ms: 50
   servo:
-    enabled: true
-    pin: 9                              # 舵机PWM引脚(Arduino)
-    angle_ok: 45                        # 合格品舵机角度
-    angle_ng: 135                       # 不合格品舵机角度
-    delay_ms: 500                       # 舵机动作保持时间
+    enabled: false
+    pin: 9
+    angle_ok: 45
+    angle_ng: 135
+    delay_ms: 500
 
-# ==================== 串口通信配置 ====================
+# ==================== Serial Communication ====================
 serial:
-  port: "COM3"                          # Windows: COM3, Linux: /dev/ttyUSB0
+  port: "COM3"
   baudrate: 115200
   timeout: 1.0
 
-# ==================== GUI配置 ====================
+# ==================== GUI Configuration ====================
 gui:
-  window_title: "PCB-YOLO 缺陷检测与智能分拣系统"
+  window_title: "PCB-YOLO Defect Detection & Sorting System"
   window_width: 1400
   window_height: 900
-  refresh_interval: 33                  # 界面刷新间隔(ms), 约30fps
+  refresh_interval: 33
   show_fps: true
   show_confidence: true
-  expert_mode: true                     # 启用专家评分模式
-  default_mode: "production"            # 默认界面模式: production(产线) / debug(调试)
+  expert_mode: true
+  default_mode: "production"
 
-# ==================== 产线管理配置 ====================
+# ==================== Production Configuration ====================
 production:
-  profiles_dir: "./configs/line_profiles"   # 产线配置档案目录
-  default_profile: "default"                # 默认产线配置名
-  sn_barcode_enabled: true                  # 启用SN条码扫描
-  sn_prefix: "PCB"                          # SN码前缀
-  operator_required: true                   # 启动前必须输入操作员工号
-  equipment_id: "EQ-001"                    # 本机设备编号
+  profiles_dir: "./configs/line_profiles"
+  default_profile: "default"
+  sn_barcode_enabled: true
+  sn_prefix: "PCB"
+  operator_required: true
+  equipment_id: "EQ-001"
 
-# ==================== 追溯配置 ====================
+# ==================== Traceability Configuration ====================
 traceability:
-  db_path: "./results/traceability.db"      # SQLite数据库路径
-  max_history: 100000                       # 最大历史记录数（SQLite无实际限制）
+  db_path: "./results/traceability.db"
+  max_history: 100000
 
-# ==================== 误报屏蔽配置 ====================
+# ==================== Suppression Rules Configuration ====================
 suppression:
-  rules_dir: "./configs/suppression_rules"  # 屏蔽规则目录
-  enabled: true                             # 启用误报屏蔽
-
-# ==================== 报警配置 ====================
+  rules_dir: "./configs/suppression_rules"
+  enabled: false
+# ==================== Alarm Configuration ====================
 alarm:
-  sound_enabled: true                       # 启用声音报警
-  light_enabled: true                       # 启用灯光报警（需Arduino）
-  beep_freq: 1000                           # 蜂鸣频率(Hz)
-  beep_duration: 300                        # 蜂鸣时长(ms)
-  cooldown_ms: 2000                         # 报警冷却时间(ms)
+  sound_enabled: true
+  light_enabled: true
+  beep_freq: 1000
+  beep_duration: 300
+  cooldown_ms: 2000
 
-# ==================== 设备监控配置 ====================
+# ==================== Equipment Monitor Configuration ====================
 monitor:
-  brightness_min: 40                        # 亮度下限
-  brightness_max: 220                       # 亮度上限
-  fps_min: 10                               # 帧率下限
-  inference_max_ms: 200                     # 推理耗时上限(ms)
+  brightness_min: 40
+  brightness_max: 220
+  fps_min: 10
+  inference_max_ms: 200
 
-# ==================== 权限配置 ====================
+# ==================== Authentication Configuration ====================
 auth:
-  enabled: true                             # 启用权限管理
-  db_path: "./configs/users.json"           # 用户数据路径
-  audit_log: "./results/audit.log"          # 审计日志路径
+  enabled: false
+  db_path: "./configs/users.json"
+  audit_log: "./results/audit.log"
 
-# ==================== 系统配置 ====================
+# ==================== System Configuration ====================
 system:
   log_level: "INFO"
   log_file: "./results/system.log"
-  save_images: true                         # 保存检测图片
+  save_images: true
   save_dir: "./results/detections"
-  max_history: 1000                         # GUI内存中最大历史记录数
+  max_history: 1000
+

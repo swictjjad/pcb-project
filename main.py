@@ -85,13 +85,29 @@ class PCBDefectSystem:
         """初始化所有组件"""
         logger.info("正在初始化系统组件...")
 
-        # 1. 加载检测模型
+        # 1. 加载检测模型（优先ONNX）
         try:
-            from inference import PCBDefectDetector
-            self.detector = PCBDefectDetector(self.config)
+            from inference import PCBDefectDetector, ONNXPCBDefectDetector
+            model_path = Path(self.config.inference.model_path)
+            onnx_path = model_path.with_suffix(".onnx")
+            use_onnx = onnx_path.exists()
+            if use_onnx:
+                logger.info(f"检测到ONNX模型: {onnx_path}，使用ONNX推理后端")
+                self.detector = ONNXPCBDefectDetector(
+                    str(onnx_path),
+                    img_size=self.config.inference.img_size,
+                    conf_threshold=self.config.inference.conf_threshold,
+                    iou_threshold=self.config.inference.iou_threshold,
+                    class_names=self.config.data.class_names,
+                )
+                self.detector.warmup(runs=3)
+            else:
+                logger.info(f"未找到ONNX模型，使用PyTorch后端: {model_path}")
+                self.detector = PCBDefectDetector(self.config)
             logger.info("检测模型加载成功")
         except Exception as e:
             logger.error(f"检测模型加载失败: {e}")
+            return False
             return False
 
         # 2. 连接Arduino控制器
@@ -113,16 +129,53 @@ class PCBDefectSystem:
 
         # 3. 打开摄像头
         try:
-            self.camera = cv2.VideoCapture(self.config.hardware.camera.index)
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.hardware.camera.width)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.hardware.camera.height)
-            self.camera.set(cv2.CAP_PROP_FPS, self.config.hardware.camera.fps)
+            # 优先使用 DSHOW 后端（Windows 下更稳定）
+            self.camera = cv2.VideoCapture(self.config.hardware.camera.index, cv2.CAP_DSHOW)
 
-            if self.camera.isOpened():
-                logger.info("摄像头已打开")
-            else:
-                logger.error("摄像头打开失败")
-                return False
+            # 尝试多种分辨率，找到摄像头支持的最大分辨率
+            camera_opened = False
+            for target_res in [(self.config.hardware.camera.width, self.config.hardware.camera.height),
+                               (1280, 720), (640, 480)]:
+                self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, target_res[0])
+                self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, target_res[1])
+                self.camera.set(cv2.CAP_PROP_FPS, self.config.hardware.camera.fps)
+
+                if self.camera.isOpened():
+                    ret, frame = self.camera.read()
+                    if ret and frame is not None:
+                        # 成功打开并读取到帧
+                        h, w = frame.shape[:2]
+                        self.config.hardware.camera.width = w
+                        self.config.hardware.camera.height = h
+                        logger.info(f"摄像头已打开，分辨率: {w}x{h}")
+                        camera_opened = True
+                        break
+                    else:
+                        self.camera.release()
+
+            if not camera_opened:
+                # 降级：不使用 DSHOW 后端重试
+                logger.warning("DSHOW 后端打开失败，尝试默认后端...")
+                self.camera.release()
+                self.camera = cv2.VideoCapture(self.config.hardware.camera.index)
+                self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                self.camera.set(cv2.CAP_PROP_FPS, 30)
+
+                if self.camera.isOpened():
+                    ret, frame = self.camera.read()
+                    if ret and frame is not None:
+                        h, w = frame.shape[:2]
+                        self.config.hardware.camera.width = w
+                        self.config.hardware.camera.height = h
+                        logger.info(f"摄像头已打开（默认后端），分辨率: {w}x{h}")
+                    else:
+                        logger.error("摄像头打开但无法读取帧")
+                        self.camera.release()
+                        return False
+                else:
+                    logger.error("摄像头打开失败")
+                    return False
         except Exception as e:
             logger.error(f"摄像头初始化失败: {e}")
             return False
@@ -185,7 +238,10 @@ class PCBDefectSystem:
                     time.sleep(0.1)
                     continue
 
-                if self.config.inference.show_preview:
+                # NOTE: cv2.imshow conflicts with Qt event loop in GUI mode.
+                # The GUI (ui/gui.py) handles video preview via QImage/QPixmap.
+                # show_preview is kept for headless/non-GUI debugging only.
+                if self.config.inference.show_preview and not getattr(self, '_gui_mode', False):
                     preview = cv2.resize(frame, (640, 360))
                     cv2.imshow("System Preview - Press 'q' to quit", preview)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -396,9 +452,11 @@ class PCBDefectSystem:
 
             logger.info(f"  检测数: {results.get('num_detections', 0)}, 耗时: {elapsed:.1f}ms")
 
-            cv2.imshow("Demo Mode - Press 'q' to quit", vis_frame)
-            if cv2.waitKey(500) & 0xFF == ord('q'):
-                break
+            # Headless demo preview (conflicts with Qt GUI)
+            if not getattr(self, '_gui_mode', False):
+                cv2.imshow("Demo Mode - Press 'q' to quit", vis_frame)
+                if cv2.waitKey(500) & 0xFF == ord('q'):
+                    break
 
         cv2.destroyAllWindows()
 
@@ -480,8 +538,8 @@ def main():
     parser.add_argument('--config', type=str, default='configs/config.yaml',
                         help='配置文件路径')
     parser.add_argument('--mode', type=str, default='auto',
-                        choices=['auto', 'manual', 'demo', 'gui'],
-                        help='运行模式: auto=自动, manual=手动, demo=演示, gui=图形界面')
+                        choices=['auto', 'manual', 'demo', 'gui', 'kanban'],
+                        help='运行模式: auto=自动, manual=手动, demo=演示, gui=图形界面, kanban=产线看板')
     parser.add_argument('--mock', action='store_true',
                         help='使用模拟硬件（无Arduino调试模式）')
     parser.add_argument('--model', type=str, default=None,
@@ -517,6 +575,10 @@ def main():
     elif args.mode == 'gui':
         from ui.gui import main as gui_main
         gui_main()
+    elif args.mode == 'kanban':
+        system._gui_mode = True  # 禁用 cv2.imshow
+        from ui.kanban import run_kanban
+        run_kanban(system)
 
 
 if __name__ == "__main__":

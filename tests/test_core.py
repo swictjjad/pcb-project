@@ -330,17 +330,17 @@ class TestAuthManager(unittest.TestCase):
 
     def test_add_user(self):
         self.auth.login("admin", "admin123")
-        result = self.auth.add_user("newuser", Role.OPERATOR, "pass123", "New User")
+        result = self.auth.add_user("newuser", Role.OPERATOR, "pass1234", "New User")
         self.assertTrue(result)
         self.auth.logout()
-        self.assertTrue(self.auth.login("newuser", "pass123"))
+        self.assertTrue(self.auth.login("newuser", "pass1234"))
 
     def test_change_password(self):
         self.auth.login("operator", "op123")
-        result = self.auth.change_password("operator", "op123", "newpass")
+        result = self.auth.change_password("operator", "op123", "newpass1")
         self.assertTrue(result)
         self.auth.logout()
-        self.assertTrue(self.auth.login("operator", "newpass"))
+        self.assertTrue(self.auth.login("operator", "newpass1"))
 
 
 class TestEquipmentMonitor(unittest.TestCase):

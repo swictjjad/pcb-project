@@ -20,8 +20,21 @@ from utils.logger import setup_logger
 
 logger = setup_logger("traceability")
 
-# 默认数据库路径
-DEFAULT_DB_PATH = "./results/traceability.db"
+# 默认数据库路径（使用项目根目录下的绝对路径）
+_DEFAULT_DB_PATH_RESOLVED = None
+
+
+def _resolve_db_path() -> Path:
+    """解析追溯数据库路径的绝对路径"""
+    global _DEFAULT_DB_PATH_RESOLVED
+    if _DEFAULT_DB_PATH_RESOLVED is not None:
+        return _DEFAULT_DB_PATH_RESOLVED
+    from utils.config_loader import get_project_root
+    _DEFAULT_DB_PATH_RESOLVED = get_project_root() / "results" / "traceability.db"
+    return _DEFAULT_DB_PATH_RESOLVED
+
+
+DEFAULT_DB_PATH = _resolve_db_path()
 
 
 class TraceabilityDB:

@@ -20,8 +20,21 @@ from utils.logger import setup_logger
 
 logger = setup_logger("false_alarm_suppressor")
 
-# 规则存储路径
-SUPPRESSION_RULES_DIR = Path("./configs/suppression_rules")
+# 规则存储路径（使用项目根目录下的绝对路径）
+_SUPPRESSION_RULES_DIR_RESOLVED = None
+
+
+def _resolve_suppression_dir() -> Path:
+    """解析误报屏蔽规则目录的绝对路径"""
+    global _SUPPRESSION_RULES_DIR_RESOLVED
+    if _SUPPRESSION_RULES_DIR_RESOLVED is not None:
+        return _SUPPRESSION_RULES_DIR_RESOLVED
+    from utils.config_loader import get_project_root
+    _SUPPRESSION_RULES_DIR_RESOLVED = get_project_root() / "configs" / "suppression_rules"
+    return _SUPPRESSION_RULES_DIR_RESOLVED
+
+
+SUPPRESSION_RULES_DIR = _resolve_suppression_dir()
 
 
 class SuppressionRule:

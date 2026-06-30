@@ -50,7 +50,9 @@ class ArduinoController:
                 port = available_ports[0][0]  # 使用第一个可用端口
                 logger.info(f"自动选择串口: {port}")
             else:
-                port = "COM3"  # 回退到默认值
+                # 没有可用串口，不硬编码 COM3，而是标记为无硬件模式
+                logger.warning("未检测到可用串口，将在 connect() 时自动切换到模拟模式")
+                port = "__NO_SERIAL__"  # 特殊标记，表示无硬件
 
         self.port = port
         self.baudrate = baudrate
@@ -75,34 +77,41 @@ class ArduinoController:
     def connect(self) -> bool:
         """
         连接Arduino
-        
+
         Returns:
             是否连接成功
         """
+        # 无串口标记 → 直接返回 False，调用方会自动切换到 Mock 模式
+        if self.port == "__NO_SERIAL__":
+            logger.warning("无可用串口，跳过物理连接")
+            self.connected = False
+            return False
+
         if not SERIAL_AVAILABLE:
             logger.error("pyserial未安装，请运行: pip install pyserial")
+            self.connected = False
             return False
-        
+
         try:
             self.serial = serial.Serial(
                 port=self.port,
                 baudrate=self.baudrate,
                 timeout=self.timeout
             )
-            
+
             # 等待Arduino复位
             time.sleep(2)
-            
+
             self.connected = True
             logger.info(f"串口已连接: {self.port} @ {self.baudrate}bps")
-            
+
             # 启动读取线程
             self._running = True
             self._read_thread = threading.Thread(target=self._read_loop, daemon=True)
             self._read_thread.start()
-            
+
             return True
-            
+
         except serial.SerialException as e:
             logger.error(f"串口连接失败: {e}")
             self.connected = False

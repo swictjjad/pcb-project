@@ -1,81 +1,42 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
+dist/
+build/
 *.egg
 
-# Virtual environments
+# Virtual env
 venv/
-ENV/
 env/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-*.swo
-*~
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Models (large files - exclude from repo)
-*.pt
-*.pth
-*.onnx
-*.engine
-
-# Data (exclude large datasets)
-data/DeepPCB-master/
-data/PCBDefectDataset/train/images/
-data/PCBDefectDataset/val/images/
-data/PCBDefectDataset/train/labels/
-data/PCBDefectDataset/val/labels/
-*.zip
-*.jpg
-*.jpeg
-!data/**/*.jpg
-!data/**/*.jpeg
-
-# Training results
-runs/detect/
-runs/segment/
-runs/classify/
-results/train/
-results/detect/
-
-# Logs
-*.log
-results/*.log
-
-# Database
+# Results & Data
+results/
+models/*.pt
+models/*.pth
 *.db
-*.sqlite
+
+# Config sensitive data
+configs/users.json
+configs/default_passwords.json
+configs/line_profiles/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Temporary files
-*.tmp
-temp/
-tmp/
+# ONNX model (keep if small, exclude if large)
+# models/*.onnx
 
-# Arduino build
-arduino/build/
+# Torch
+.torch_preloaded
+
+# Temporary
+*.tmp
+fix_*.ps1
+fix_*.py
